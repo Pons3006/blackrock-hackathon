@@ -1,6 +1,7 @@
 package com.ponshankar.hackathon.blackrock.service;
 
 import com.ponshankar.hackathon.blackrock.model.response.PerformanceResponse;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 
 import java.lang.management.ManagementFactory;
@@ -14,6 +15,7 @@ public class PerformanceService {
 
     private final Instant startTime = Instant.now();
 
+    @Observed(name = "performance.get", contextualName = "get-performance-metrics")
     public PerformanceResponse getPerformance() {
         ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
         MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();

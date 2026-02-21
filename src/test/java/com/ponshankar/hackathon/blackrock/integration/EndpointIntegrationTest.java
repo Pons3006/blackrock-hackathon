@@ -156,6 +156,94 @@ class EndpointIntegrationTest {
                 .andExpect(jsonPath("$.error").exists());
     }
 
+    @Test
+    @Order(10)
+    void filter_duplicateTransactions_markedInvalid() throws Exception {
+        String body = """
+                {
+                  "q": [],
+                  "p": [],
+                  "k": [
+                    { "start": "2024-01-01 00:00:00", "end": "2024-12-31 23:59:59" }
+                  ],
+                  "transactions": [
+                    { "date": "2024-01-15 10:30:00", "amount": 250, "ceiling": 300, "remanent": 50 },
+                    { "date": "2024-01-15 10:30:00", "amount": 250, "ceiling": 300, "remanent": 50 }
+                  ]
+                }
+                """;
+
+        mvc.perform(post(BASE + "/transactions:filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid.length()").value(1))
+                .andExpect(jsonPath("$.valid[0].amount").value(250))
+                .andExpect(jsonPath("$.invalid.length()").value(1))
+                .andExpect(jsonPath("$.invalid[0].message").value("Duplicate transaction"));
+    }
+
+    @Test
+    @Order(11)
+    void filter_negativeAmount_markedInvalid() throws Exception {
+        String body = """
+                {
+                  "q": [],
+                  "p": [],
+                  "k": [
+                    { "start": "2024-01-01 00:00:00", "end": "2024-12-31 23:59:59" }
+                  ],
+                  "transactions": [
+                    { "date": "2024-05-15 10:30:00", "amount": -150, "ceiling": -100, "remanent": -50 }
+                  ]
+                }
+                """;
+
+        mvc.perform(post(BASE + "/transactions:filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid.length()").value(0))
+                .andExpect(jsonPath("$.invalid.length()").value(1))
+                .andExpect(jsonPath("$.invalid[0].message").exists());
+    }
+
+    @Test
+    @Order(12)
+    void filter_duplicateAndNegativeMixed_categorisesCorrectly() throws Exception {
+        String body = """
+                {
+                  "q": [
+                    { "fixed": 0, "start": "2023-07-01 00:00:00", "end": "2023-07-31 23:59:00" }
+                  ],
+                  "p": [
+                    { "extra": 25, "start": "2023-10-01 08:00:00", "end": "2023-12-31 19:59:00" }
+                  ],
+                  "k": [
+                    { "start": "2023-03-01 00:00:00", "end": "2023-11-30 23:59:00" },
+                    { "start": "2023-01-01 00:00:00", "end": "2023-12-31 23:59:00" }
+                  ],
+                  "transactions": [
+                    { "date": "2023-10-12 20:15:00", "amount": 250, "ceiling": 300, "remanent": 50 },
+                    { "date": "2023-02-28 15:49:00", "amount": 375, "ceiling": 400, "remanent": 25 },
+                    { "date": "2023-07-01 21:59:00", "amount": 620, "ceiling": 700, "remanent": 80 },
+                    { "date": "2023-12-17 08:09:00", "amount": 480, "ceiling": 500, "remanent": 20 },
+                    { "date": "2023-10-12 20:15:00", "amount": 250, "ceiling": 300, "remanent": 50 },
+                    { "date": "2023-05-15 10:30:00", "amount": -150, "ceiling": -100, "remanent": -50 }
+                  ]
+                }
+                """;
+
+        mvc.perform(post(BASE + "/transactions:filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid.length()").value(4))
+                .andExpect(jsonPath("$.invalid.length()").value(2))
+                .andExpect(jsonPath("$.invalid[0].message").exists())
+                .andExpect(jsonPath("$.invalid[1].message").exists());
+    }
+
     // ── Returns NPS ─────────────────────────────────────────────────────
 
     @Test

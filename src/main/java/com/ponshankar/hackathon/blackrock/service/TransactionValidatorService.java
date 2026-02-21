@@ -4,6 +4,7 @@ import com.ponshankar.hackathon.blackrock.model.Transaction;
 import com.ponshankar.hackathon.blackrock.model.request.ValidatorRequest;
 import com.ponshankar.hackathon.blackrock.model.response.ValidatorResponse;
 import com.ponshankar.hackathon.blackrock.util.TimeUtils;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ public class TransactionValidatorService {
 
     private static final double MAX_AMOUNT = 500_000;
 
+    @Observed(name = "transaction.validate", contextualName = "validate-transactions")
     public ValidatorResponse validate(ValidatorRequest request) {
         if (request.wage() != null && request.wage() < 0) {
             throw new IllegalArgumentException("Wage must be non-negative");

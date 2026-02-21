@@ -7,6 +7,7 @@ import com.ponshankar.hackathon.blackrock.model.request.ReturnsRequest;
 import com.ponshankar.hackathon.blackrock.model.response.ReturnsResponse;
 import com.ponshankar.hackathon.blackrock.util.PeriodEngine;
 import com.ponshankar.hackathon.blackrock.util.TaxUtils;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,10 +19,12 @@ public class ReturnsService {
     private static final double NPS_RATE = 0.0711;
     private static final double INDEX_RATE = 0.1449;
 
+    @Observed(name = "returns.compute-nps", contextualName = "compute-nps-returns")
     public ReturnsResponse computeNps(ReturnsRequest request) {
         return compute(request, NPS_RATE, true);
     }
 
+    @Observed(name = "returns.compute-index", contextualName = "compute-index-returns")
     public ReturnsResponse computeIndex(ReturnsRequest request) {
         return compute(request, INDEX_RATE, false);
     }

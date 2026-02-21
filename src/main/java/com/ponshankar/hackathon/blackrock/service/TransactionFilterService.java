@@ -5,6 +5,7 @@ import com.ponshankar.hackathon.blackrock.model.Transaction;
 import com.ponshankar.hackathon.blackrock.model.request.FilterRequest;
 import com.ponshankar.hackathon.blackrock.model.response.FilterResponse;
 import com.ponshankar.hackathon.blackrock.util.TimeUtils;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -12,11 +13,14 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class TransactionFilterService {
 
+    @Observed(name = "transaction.filter", contextualName = "filter-transactions")
     public FilterResponse filter(FilterRequest request) {
         validatePeriods("q", request.q());
         validatePeriods("p", request.p());
@@ -32,8 +36,21 @@ public class TransactionFilterService {
 
         List<Transaction> valid = new ArrayList<>();
         List<Transaction> invalid = new ArrayList<>();
+        Set<String> seenDates = new HashSet<>();
 
         for (Transaction txn : transactions) {
+            String reason = validateTransaction(txn);
+            if (reason != null) {
+                invalid.add(new Transaction(
+                        txn.date(), txn.amount(), txn.ceiling(), txn.remanent(), reason));
+                continue;
+            }
+            if (!seenDates.add(txn.date())) {
+                invalid.add(new Transaction(
+                        txn.date(), txn.amount(), txn.ceiling(), txn.remanent(),
+                        "Duplicate transaction"));
+                continue;
+            }
             Long epoch = TimeUtils.toEpochSeconds(txn.date());
             if (epoch != null && isCoveredByAnyK(epoch, kRanges)) {
                 valid.add(txn);
@@ -87,6 +104,24 @@ public class TransactionFilterService {
                 throw new IllegalArgumentException(fieldName + ": invalid date format");
             }
         }
+    }
+
+    private static final double MAX_AMOUNT = 500_000;
+
+    private String validateTransaction(Transaction txn) {
+        if (txn.date() == null || TimeUtils.toEpochSeconds(txn.date()) == null) {
+            return "Invalid or missing timestamp";
+        }
+        if (txn.amount() == null || txn.amount() < 0 || txn.amount() >= MAX_AMOUNT) {
+            return "Amount must be >= 0 and < " + (long) MAX_AMOUNT;
+        }
+        if (txn.ceiling() == null || txn.ceiling() < 0) {
+            return "Ceiling must be non-negative";
+        }
+        if (txn.remanent() == null || txn.remanent() < 0) {
+            return "Remanent must be non-negative";
+        }
+        return null;
     }
 
     private List<long[]> toEpochRanges(List<Period> periods) {
