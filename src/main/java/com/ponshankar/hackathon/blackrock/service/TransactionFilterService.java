@@ -7,7 +7,10 @@ import com.ponshankar.hackathon.blackrock.model.response.FilterResponse;
 import com.ponshankar.hackathon.blackrock.util.TimeUtils;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -65,11 +68,23 @@ public class TransactionFilterService {
         if (kPeriods == null) return;
         for (int i = 0; i < kPeriods.size(); i++) {
             Period p = kPeriods.get(i);
-            LocalDateTime start = LocalDateTime.parse(p.start().trim(), TimeUtils.TIMESTAMP_FORMAT);
-            LocalDateTime end = LocalDateTime.parse(p.end().trim(), TimeUtils.TIMESTAMP_FORMAT);
-            if (start.getYear() != end.getYear()) {
+            int startYear = parseYear(p.start().trim(), "k[" + i + "].start");
+            int endYear = parseYear(p.end().trim(), "k[" + i + "].end");
+            if (startYear != endYear) {
                 throw new IllegalArgumentException(
                         "k[" + i + "]: must not span multiple calendar years");
+            }
+        }
+    }
+
+    private int parseYear(String value, String fieldName) {
+        try {
+            return LocalDateTime.parse(value, TimeUtils.TIMESTAMP_FORMAT).getYear();
+        } catch (DateTimeParseException e) {
+            try {
+                return LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd")).getYear();
+            } catch (DateTimeParseException e2) {
+                throw new IllegalArgumentException(fieldName + ": invalid date format");
             }
         }
     }
