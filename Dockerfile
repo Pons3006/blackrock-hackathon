@@ -24,4 +24,8 @@ COPY --from=build /build/target/micro-savings-1.0.0.jar app.jar
 
 EXPOSE 5477
 
+ENV OTEL_TRACING_ENABLED=false
+ENV OTEL_EXPORTER_ENDPOINT=http://localhost:4318/v1/traces
+ENV OTEL_SAMPLING_PROBABILITY=1.0
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
