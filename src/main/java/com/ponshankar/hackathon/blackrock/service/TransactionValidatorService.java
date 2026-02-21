@@ -1,14 +1,71 @@
 package com.ponshankar.hackathon.blackrock.service;
 
+import com.ponshankar.hackathon.blackrock.model.Transaction;
 import com.ponshankar.hackathon.blackrock.model.request.ValidatorRequest;
 import com.ponshankar.hackathon.blackrock.model.response.ValidatorResponse;
+import com.ponshankar.hackathon.blackrock.util.TimeUtils;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 public class TransactionValidatorService {
 
+    private static final long MAX_AMOUNT = 500_000L;
+
     public ValidatorResponse validate(ValidatorRequest request) {
-        // TODO: implement duplicate detection, bounds checks, ceiling/remanent consistency
-        throw new UnsupportedOperationException("Not yet implemented");
+        if (request.wage() != null && request.wage() < 0) {
+            throw new IllegalArgumentException("Wage must be non-negative");
+        }
+
+        List<Transaction> valid = new ArrayList<>();
+        List<Transaction> invalid = new ArrayList<>();
+        List<Transaction> duplicate = new ArrayList<>();
+        Set<String> seenDates = new HashSet<>();
+
+        List<Transaction> transactions = request.transactions();
+        if (transactions == null) {
+            return new ValidatorResponse(valid, invalid, duplicate);
+        }
+
+        for (Transaction txn : transactions) {
+            String reason = validateTransaction(txn);
+            if (reason != null) {
+                invalid.add(new Transaction(txn.date(), txn.amount(), txn.ceiling(), txn.remanent(), reason));
+                continue;
+            }
+            if (!seenDates.add(txn.date())) {
+                duplicate.add(txn);
+                continue;
+            }
+            valid.add(txn);
+        }
+
+        return new ValidatorResponse(valid, invalid, duplicate);
+    }
+
+    private String validateTransaction(Transaction txn) {
+        if (txn.date() == null || TimeUtils.toEpochSeconds(txn.date()) == null) {
+            return "Invalid or missing timestamp";
+        }
+        if (txn.amount() == null || txn.amount() < 0 || txn.amount() >= MAX_AMOUNT) {
+            return "Amount must be >= 0 and < " + MAX_AMOUNT;
+        }
+        if (txn.ceiling() == null || txn.ceiling() % 100 != 0) {
+            return "Ceiling must be a multiple of 100";
+        }
+        if (txn.ceiling() < txn.amount()) {
+            return "Ceiling must be >= amount";
+        }
+        if (txn.ceiling() - txn.amount() >= 100) {
+            return "Ceiling - amount must be < 100";
+        }
+        if (txn.remanent() == null || txn.remanent() != txn.ceiling() - txn.amount()) {
+            return "Remanent must equal ceiling - amount";
+        }
+        return null;
     }
 }
