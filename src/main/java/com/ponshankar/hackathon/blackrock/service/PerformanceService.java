@@ -22,7 +22,12 @@ public class PerformanceService {
         String memory = String.format("%.2f MB", heapUsedBytes / (1024.0 * 1024.0));
 
         Duration uptime = Duration.between(startTime, Instant.now());
-        String time = String.format("%dh %dm %ds", uptime.toHours(), uptime.toMinutesPart(), uptime.toSecondsPart());
+        long totalMillis = uptime.toMillis();
+        long hours = totalMillis / 3_600_000;
+        long minutes = (totalMillis % 3_600_000) / 60_000;
+        long seconds = (totalMillis % 60_000) / 1_000;
+        long millis = totalMillis % 1_000;
+        String time = String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, millis);
 
         int threads = threadBean.getThreadCount();
 

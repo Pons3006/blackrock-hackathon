@@ -7,6 +7,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record Period(
         @JsonProperty("start") String start,
         @JsonProperty("end") String end,
-        @JsonProperty("fixed") Long fixed,
-        @JsonProperty("extra") Long extra
+        @JsonProperty("fixed") Double fixed,
+        @JsonProperty("extra") Double extra
 ) {}

@@ -1,3 +1,8 @@
+/**
+ * Test type: Unit test
+ * Validation: PeriodEngine utility methods — sortByDate, applyQOverrides, applyPExtras, groupByKPeriods
+ * Command: mvn test -Dtest=PeriodEngineTest
+ */
 package com.ponshankar.hackathon.blackrock.util;
 
 import com.ponshankar.hackathon.blackrock.model.Period;
@@ -13,15 +18,15 @@ class PeriodEngineTest {
 
     // ── helpers ──────────────────────────────────────────────────────────
 
-    private Transaction txn(String date, long remanent) {
-        return new Transaction(date, 0L, 0L, remanent);
+    private Transaction txn(String date, double remanent) {
+        return new Transaction(date, 0.0, 0.0, remanent);
     }
 
-    private Period qPeriod(String start, String end, long fixed) {
+    private Period qPeriod(String start, String end, double fixed) {
         return new Period(start, end, fixed, null);
     }
 
-    private Period pPeriod(String start, String end, long extra) {
+    private Period pPeriod(String start, String end, double extra) {
         return new Period(start, end, null, extra);
     }
 
@@ -42,7 +47,7 @@ class PeriodEngineTest {
                     txn("2024-01-02 00:00:00", 20)
             ));
 
-            assertArrayEquals(new long[]{10, 20, 30}, sorted.remanents());
+            assertArrayEquals(new double[]{10, 20, 30}, sorted.remanents());
             assertTrue(sorted.epochs()[0] < sorted.epochs()[1]);
             assertTrue(sorted.epochs()[1] < sorted.epochs()[2]);
         }
@@ -56,20 +61,18 @@ class PeriodEngineTest {
         @Test
         void singleQOverridesAllCoveredTxns() {
             long[] epochs = {100, 200, 300};
-            long[] remanents = {10, 20, 30};
+            double[] remanents = {10, 20, 30};
 
             PeriodEngine.applyQOverrides(epochs, remanents,
                     List.of(qPeriod("1970-01-01 00:00:50", "1970-01-01 00:05:00", 99)));
 
-            assertArrayEquals(new long[]{99, 99, 99}, remanents);
+            assertArrayEquals(new double[]{99, 99, 99}, remanents);
         }
 
         @Test
         void latestStartWins() {
-            // q1 covers [100..500] fixed=10, q2 covers [200..500] fixed=20
-            // At epoch 250, q2 has later start → q2 wins
             long[] epochs = {250};
-            long[] remanents = {5};
+            double[] remanents = {5};
 
             PeriodEngine.applyQOverrides(epochs, remanents, List.of(
                     qPeriod("1970-01-01 00:01:40", "1970-01-01 00:08:20", 10),
@@ -80,9 +83,8 @@ class PeriodEngineTest {
 
         @Test
         void tieBreaking_firstInListWins() {
-            // Both have same start; index 0 should win over index 1
             long[] epochs = {150};
-            long[] remanents = {5};
+            double[] remanents = {5};
 
             PeriodEngine.applyQOverrides(epochs, remanents, List.of(
                     qPeriod("1970-01-01 00:01:40", "1970-01-01 00:08:20", 10),
@@ -93,9 +95,8 @@ class PeriodEngineTest {
 
         @Test
         void expiredQDoesNotApply() {
-            // q covers [100..200], txn at 300 → no override
             long[] epochs = {300};
-            long[] remanents = {5};
+            double[] remanents = {5};
 
             PeriodEngine.applyQOverrides(epochs, remanents,
                     List.of(qPeriod("1970-01-01 00:01:40", "1970-01-01 00:03:20", 99)));
@@ -105,14 +106,14 @@ class PeriodEngineTest {
 
         @Test
         void noQPeriods_unchanged() {
-            long[] remanents = {10, 20};
+            double[] remanents = {10, 20};
             PeriodEngine.applyQOverrides(new long[]{100, 200}, remanents, List.of());
-            assertArrayEquals(new long[]{10, 20}, remanents);
+            assertArrayEquals(new double[]{10, 20}, remanents);
         }
 
         @Test
         void nullQPeriods_unchanged() {
-            long[] remanents = {10};
+            double[] remanents = {10};
             PeriodEngine.applyQOverrides(new long[]{100}, remanents, null);
             assertEquals(10, remanents[0]);
         }
@@ -126,20 +127,18 @@ class PeriodEngineTest {
         @Test
         void singlePAddsExtraToAllCovered() {
             long[] epochs = {100, 200, 300};
-            long[] remanents = {10, 20, 30};
+            double[] remanents = {10, 20, 30};
 
             PeriodEngine.applyPExtras(epochs, remanents,
                     List.of(pPeriod("1970-01-01 00:00:50", "1970-01-01 00:05:00", 5)));
 
-            assertArrayEquals(new long[]{15, 25, 35}, remanents);
+            assertArrayEquals(new double[]{15, 25, 35}, remanents);
         }
 
         @Test
         void overlappingPExtrasSum() {
-            // p1 covers [100..300] extra=5, p2 covers [200..400] extra=3
-            // At 200: both active → +8; at 100: only p1 → +5
             long[] epochs = {100, 200};
-            long[] remanents = {10, 20};
+            double[] remanents = {10, 20};
 
             PeriodEngine.applyPExtras(epochs, remanents, List.of(
                     pPeriod("1970-01-01 00:01:40", "1970-01-01 00:05:00", 5),
@@ -151,9 +150,8 @@ class PeriodEngineTest {
 
         @Test
         void expiredPStopsApplying() {
-            // p covers [50..150] extra=5; txn at 200 should NOT get extra
             long[] epochs = {100, 200};
-            long[] remanents = {10, 20};
+            double[] remanents = {10, 20};
 
             PeriodEngine.applyPExtras(epochs, remanents,
                     List.of(pPeriod("1970-01-01 00:00:50", "1970-01-01 00:02:30", 5)));
@@ -164,14 +162,14 @@ class PeriodEngineTest {
 
         @Test
         void noPPeriods_unchanged() {
-            long[] remanents = {10};
+            double[] remanents = {10};
             PeriodEngine.applyPExtras(new long[]{100}, remanents, List.of());
             assertEquals(10, remanents[0]);
         }
 
         @Test
         void nullPPeriods_unchanged() {
-            long[] remanents = {10};
+            double[] remanents = {10};
             PeriodEngine.applyPExtras(new long[]{100}, remanents, null);
             assertEquals(10, remanents[0]);
         }
@@ -185,45 +183,44 @@ class PeriodEngineTest {
         @Test
         void singleKSumsAll() {
             long[] epochs = {100, 200, 300};
-            long[] remanents = {10, 20, 30};
+            double[] remanents = {10, 20, 30};
 
-            long[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
+            double[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
                     List.of(kPeriod("1970-01-01 00:00:50", "1970-01-01 00:05:50")));
 
-            assertArrayEquals(new long[]{60}, sums);
+            assertArrayEquals(new double[]{60}, sums);
         }
 
         @Test
         void kPartialCoverage() {
             long[] epochs = {100, 200, 300, 400};
-            long[] remanents = {10, 20, 30, 40};
+            double[] remanents = {10, 20, 30, 40};
 
-            // k covers [150..350] → only epochs 200 and 300
-            long[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
+            double[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
                     List.of(kPeriod("1970-01-01 00:02:30", "1970-01-01 00:05:50")));
 
-            assertArrayEquals(new long[]{50}, sums);
+            assertArrayEquals(new double[]{50}, sums);
         }
 
         @Test
         void multipleKPeriods() {
             long[] epochs = {100, 200, 300, 400};
-            long[] remanents = {10, 20, 30, 40};
+            double[] remanents = {10, 20, 30, 40};
 
-            long[] sums = PeriodEngine.groupByKPeriods(epochs, remanents, List.of(
+            double[] sums = PeriodEngine.groupByKPeriods(epochs, remanents, List.of(
                     kPeriod("1970-01-01 00:01:40", "1970-01-01 00:03:20"),
                     kPeriod("1970-01-01 00:05:00", "1970-01-01 00:06:40")));
 
-            assertEquals(30, sums[0]);  // epochs 100, 200
-            assertEquals(70, sums[1]);  // epochs 300, 400
+            assertEquals(30, sums[0]);
+            assertEquals(70, sums[1]);
         }
 
         @Test
         void txnInMultipleOverlappingK() {
             long[] epochs = {200};
-            long[] remanents = {50};
+            double[] remanents = {50};
 
-            long[] sums = PeriodEngine.groupByKPeriods(epochs, remanents, List.of(
+            double[] sums = PeriodEngine.groupByKPeriods(epochs, remanents, List.of(
                     kPeriod("1970-01-01 00:01:40", "1970-01-01 00:05:00"),
                     kPeriod("1970-01-01 00:03:00", "1970-01-01 00:06:40")));
 
@@ -234,9 +231,9 @@ class PeriodEngineTest {
         @Test
         void kWithNoTxns() {
             long[] epochs = {100};
-            long[] remanents = {10};
+            double[] remanents = {10};
 
-            long[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
+            double[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
                     List.of(kPeriod("1970-01-01 00:05:00", "1970-01-01 00:06:40")));
 
             assertEquals(0, sums[0]);
@@ -245,10 +242,9 @@ class PeriodEngineTest {
         @Test
         void boundaryInclusive() {
             long[] epochs = {100, 200};
-            long[] remanents = {10, 20};
+            double[] remanents = {10, 20};
 
-            // k exactly [100..200]
-            long[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
+            double[] sums = PeriodEngine.groupByKPeriods(epochs, remanents,
                     List.of(kPeriod("1970-01-01 00:01:40", "1970-01-01 00:03:20")));
 
             assertEquals(30, sums[0]);
@@ -256,15 +252,15 @@ class PeriodEngineTest {
 
         @Test
         void emptyKPeriods() {
-            long[] sums = PeriodEngine.groupByKPeriods(
-                    new long[]{100}, new long[]{10}, List.of());
+            double[] sums = PeriodEngine.groupByKPeriods(
+                    new long[]{100}, new double[]{10}, List.of());
             assertEquals(0, sums.length);
         }
 
         @Test
         void nullKPeriods() {
-            long[] sums = PeriodEngine.groupByKPeriods(
-                    new long[]{100}, new long[]{10}, null);
+            double[] sums = PeriodEngine.groupByKPeriods(
+                    new long[]{100}, new double[]{10}, null);
             assertEquals(0, sums.length);
         }
     }

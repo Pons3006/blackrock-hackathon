@@ -1,5 +1,6 @@
 package com.ponshankar.hackathon.blackrock.util;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -10,21 +11,31 @@ public final class TimeUtils {
     public static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    private static final DateTimeFormatter DATE_ONLY_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     private TimeUtils() {}
 
     /**
      * Parses a timestamp string to epoch seconds (UTC).
+     * Accepts both "yyyy-MM-dd HH:mm:ss" and "yyyy-MM-dd" (treated as midnight).
      * Returns null if the format is invalid.
      */
     public static Long toEpochSeconds(String timestamp) {
         if (timestamp == null || timestamp.isBlank()) {
             return null;
         }
+        String trimmed = timestamp.trim();
         try {
-            LocalDateTime ldt = LocalDateTime.parse(timestamp.trim(), TIMESTAMP_FORMAT);
+            LocalDateTime ldt = LocalDateTime.parse(trimmed, TIMESTAMP_FORMAT);
             return ldt.toEpochSecond(ZoneOffset.UTC);
         } catch (DateTimeParseException e) {
-            return null;
+            try {
+                LocalDate ld = LocalDate.parse(trimmed, DATE_ONLY_FORMAT);
+                return ld.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+            } catch (DateTimeParseException e2) {
+                return null;
+            }
         }
     }
 

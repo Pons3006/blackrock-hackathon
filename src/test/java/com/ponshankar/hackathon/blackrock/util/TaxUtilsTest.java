@@ -1,3 +1,8 @@
+/**
+ * Test type: Unit test
+ * Validation: TaxUtils — income tax slab calculation, NPS tax benefit with deduction caps
+ * Command: mvn test -Dtest=TaxUtilsTest
+ */
 package com.ponshankar.hackathon.blackrock.util;
 
 import org.junit.jupiter.api.Test;

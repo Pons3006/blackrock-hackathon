@@ -29,11 +29,11 @@ public class ReturnsService {
     private ReturnsResponse compute(ReturnsRequest request, double rate, boolean nps) {
         List<Transaction> transactions = request.transactions();
         if (transactions == null || transactions.isEmpty()) {
-            return new ReturnsResponse(0L, 0L, List.of());
+            return new ReturnsResponse(0.0, 0.0, List.of());
         }
 
-        long totalAmount = 0;
-        long totalCeiling = 0;
+        double totalAmount = 0;
+        double totalCeiling = 0;
         for (Transaction txn : transactions) {
             totalAmount += txn.amount();
             totalCeiling += txn.ceiling();
@@ -41,12 +41,12 @@ public class ReturnsService {
 
         PeriodEngine.SortedTransactions sorted = PeriodEngine.sortByDate(transactions);
         long[] epochs = sorted.epochs();
-        long[] remanents = sorted.remanents();
+        double[] remanents = sorted.remanents();
 
         PeriodEngine.applyQOverrides(epochs, remanents, request.q());
         PeriodEngine.applyPExtras(epochs, remanents, request.p());
 
-        long[] kSums = PeriodEngine.groupByKPeriods(epochs, remanents, request.k());
+        double[] kSums = PeriodEngine.groupByKPeriods(epochs, remanents, request.k());
 
         int years = (request.age() != null && request.age() < 60)
                 ? (60 - request.age()) : 5;

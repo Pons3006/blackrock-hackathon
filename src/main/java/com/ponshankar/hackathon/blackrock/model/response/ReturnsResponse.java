@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record ReturnsResponse(
-        @JsonProperty("transactionsTotalAmount") Long transactionsTotalAmount,
-        @JsonProperty("transactionsTotalCeiling") Long transactionsTotalCeiling,
+        @JsonProperty("transactionsTotalAmount") Double transactionsTotalAmount,
+        @JsonProperty("transactionsTotalCeiling") Double transactionsTotalCeiling,
         @JsonProperty("savingsByDates") List<SavingsByDate> savingsByDates
 ) {}

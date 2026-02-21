@@ -27,8 +27,8 @@ The API starts on **port 5477**.
 ## Run with Docker
 
 ```bash
-docker build -t micro-savings .
-docker run -p 5477:5477 micro-savings
+docker build -t blk-hacking-ind-ponshankar-balasubramaniyam .
+docker run -p 5477:5477 blk-hacking-ind-ponshankar-balasubramaniyam
 ```
 
 ## API Endpoints

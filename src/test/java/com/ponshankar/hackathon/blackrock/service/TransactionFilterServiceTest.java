@@ -1,3 +1,8 @@
+/**
+ * Test type: Unit test
+ * Validation: TransactionFilterService — k-period coverage filtering, period validation, boundary handling
+ * Command: mvn test -Dtest=TransactionFilterServiceTest
+ */
 package com.ponshankar.hackathon.blackrock.service;
 
 import com.ponshankar.hackathon.blackrock.model.Period;
@@ -15,7 +20,7 @@ class TransactionFilterServiceTest {
     private final TransactionFilterService service = new TransactionFilterService();
 
     private Transaction txn(String date) {
-        return new Transaction(date, 250L, 300L, 50L);
+        return new Transaction(date, 250.0, 300.0, 50.0);
     }
 
     private Period kPeriod(String start, String end) {
@@ -151,7 +156,7 @@ class TransactionFilterServiceTest {
     void filter_invalidQPeriod_throws() {
         assertThrows(IllegalArgumentException.class, () ->
                 service.filter(new FilterRequest(
-                        List.of(new Period("bad", "2024-01-31 23:59:59", 100L, null)),
+                        List.of(new Period("bad", "2024-01-31 23:59:59", 100.0, null)),
                         List.of(), List.of(), List.of()
                 )));
     }

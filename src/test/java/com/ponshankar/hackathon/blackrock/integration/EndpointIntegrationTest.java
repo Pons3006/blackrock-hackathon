@@ -1,3 +1,8 @@
+/**
+ * Test type: Integration test
+ * Validation: All REST endpoints — parse, validator, filter, returns (NPS/index), performance
+ * Command: mvn test -Dtest=EndpointIntegrationTest
+ */
 package com.ponshankar.hackathon.blackrock.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;

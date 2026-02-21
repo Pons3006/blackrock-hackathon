@@ -14,7 +14,7 @@ import java.util.Set;
 @Service
 public class TransactionValidatorService {
 
-    private static final long MAX_AMOUNT = 500_000L;
+    private static final double MAX_AMOUNT = 500_000;
 
     public ValidatorResponse validate(ValidatorRequest request) {
         if (request.wage() != null && request.wage() < 0) {
@@ -52,7 +52,7 @@ public class TransactionValidatorService {
             return "Invalid or missing timestamp";
         }
         if (txn.amount() == null || txn.amount() < 0 || txn.amount() >= MAX_AMOUNT) {
-            return "Amount must be >= 0 and < " + MAX_AMOUNT;
+            return "Amount must be >= 0 and < " + (long) MAX_AMOUNT;
         }
         if (txn.ceiling() == null || txn.ceiling() % 100 != 0) {
             return "Ceiling must be a multiple of 100";
@@ -63,7 +63,7 @@ public class TransactionValidatorService {
         if (txn.ceiling() - txn.amount() >= 100) {
             return "Ceiling - amount must be < 100";
         }
-        if (txn.remanent() == null || txn.remanent() != txn.ceiling() - txn.amount()) {
+        if (txn.remanent() == null || Math.abs(txn.remanent() - (txn.ceiling() - txn.amount())) > 1e-9) {
             return "Remanent must equal ceiling - amount";
         }
         return null;

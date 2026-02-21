@@ -1,3 +1,8 @@
+/**
+ * Test type: Unit test
+ * Validation: ReturnsService — NPS and index fund compounding, inflation adjustment, tax benefit, q/p overrides
+ * Command: mvn test -Dtest=ReturnsServiceTest
+ */
 package com.ponshankar.hackathon.blackrock.service;
 
 import com.ponshankar.hackathon.blackrock.model.Period;
@@ -15,8 +20,8 @@ class ReturnsServiceTest {
 
     private final ReturnsService service = new ReturnsService();
 
-    private Transaction txn(String date, long amount, long remanent) {
-        long ceiling = amount + remanent;
+    private Transaction txn(String date, double amount, double remanent) {
+        double ceiling = amount + remanent;
         return new Transaction(date, amount, ceiling, remanent);
     }
 
@@ -24,7 +29,7 @@ class ReturnsServiceTest {
         return new Period(start, end, null, null);
     }
 
-    private ReturnsRequest basicRequest(int age, long wage, double inflation,
+    private ReturnsRequest basicRequest(int age, double wage, double inflation,
                                         List<Transaction> txns, List<Period> k) {
         return new ReturnsRequest(age, wage, inflation, List.of(), List.of(), k, txns);
     }
@@ -34,7 +39,7 @@ class ReturnsServiceTest {
     @Test
     void nps_basicCompounding() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                30, 50_000L, 0.0,
+                30, 50_000.0, 0.0,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
@@ -43,7 +48,6 @@ class ReturnsServiceTest {
         SavingsByDate s = resp.savingsByDates().get(0);
 
         assertEquals(50.0, s.amount());
-        // 30 years at 7.11%: 50 * (1.0711)^30
         double expectedNominal = 50.0 * Math.pow(1.0711, 30);
         double expectedProfits = expectedNominal - 50.0;
         assertEquals(expectedProfits, s.profits(), 0.01);
@@ -52,7 +56,7 @@ class ReturnsServiceTest {
     @Test
     void nps_withInflation() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                30, 50_000L, 0.06,
+                30, 50_000.0, 0.06,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
@@ -67,7 +71,7 @@ class ReturnsServiceTest {
     @Test
     void nps_hasTaxBenefit() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                30, 100_000L, 0.0,
+                30, 100_000.0, 0.0,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
@@ -81,7 +85,7 @@ class ReturnsServiceTest {
     @Test
     void index_basicCompounding() {
         ReturnsResponse resp = service.computeIndex(basicRequest(
-                30, 50_000L, 0.0,
+                30, 50_000.0, 0.0,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
@@ -96,7 +100,7 @@ class ReturnsServiceTest {
     @Test
     void index_taxBenefitIsZero() {
         ReturnsResponse resp = service.computeIndex(basicRequest(
-                30, 100_000L, 0.0,
+                30, 100_000.0, 0.0,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
@@ -109,12 +113,11 @@ class ReturnsServiceTest {
     @Test
     void yearsCalc_ageLessThan60() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                50, 50_000L, 0.0,
+                50, 50_000.0, 0.0,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
 
-        // 10 years
         double expectedNominal = 50.0 * Math.pow(1.0711, 10);
         double expectedProfits = expectedNominal - 50.0;
         assertEquals(expectedProfits, resp.savingsByDates().get(0).profits(), 0.01);
@@ -123,7 +126,7 @@ class ReturnsServiceTest {
     @Test
     void yearsCalc_age60OrAbove_uses5Years() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                65, 50_000L, 0.0,
+                65, 50_000.0, 0.0,
                 List.of(txn("2024-01-15 10:00:00", 250, 50)),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
@@ -138,7 +141,7 @@ class ReturnsServiceTest {
     @Test
     void totals_sumOfOriginalTransactions() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                30, 50_000L, 0.0,
+                30, 50_000.0, 0.0,
                 List.of(
                         txn("2024-01-15 10:00:00", 250, 50),
                         txn("2024-02-15 10:00:00", 430, 70)
@@ -146,39 +149,37 @@ class ReturnsServiceTest {
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59"))
         ));
 
-        assertEquals(680L, resp.transactionsTotalAmount());
-        assertEquals(800L, resp.transactionsTotalCeiling());
+        assertEquals(680.0, resp.transactionsTotalAmount());
+        assertEquals(800.0, resp.transactionsTotalCeiling());
     }
 
     // ── q/p integration ─────────────────────────────────────────────────
 
     @Test
     void qOverride_affectsReturns() {
-        Period q = new Period("2024-01-01 00:00:00", "2024-12-31 23:59:59", 100L, null);
+        Period q = new Period("2024-01-01 00:00:00", "2024-12-31 23:59:59", 100.0, null);
         ReturnsRequest req = new ReturnsRequest(
-                30, 50_000L, 0.0,
+                30, 50_000.0, 0.0,
                 List.of(q), List.of(),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59")),
                 List.of(txn("2024-01-15 10:00:00", 250, 50))
         );
 
         ReturnsResponse resp = service.computeNps(req);
-        // q overrides remanent to 100 instead of 50
         assertEquals(100.0, resp.savingsByDates().get(0).amount());
     }
 
     @Test
     void pExtra_affectsReturns() {
-        Period p = new Period("2024-01-01 00:00:00", "2024-12-31 23:59:59", null, 25L);
+        Period p = new Period("2024-01-01 00:00:00", "2024-12-31 23:59:59", null, 25.0);
         ReturnsRequest req = new ReturnsRequest(
-                30, 50_000L, 0.0,
+                30, 50_000.0, 0.0,
                 List.of(), List.of(p),
                 List.of(kPeriod("2024-01-01 00:00:00", "2024-12-31 23:59:59")),
                 List.of(txn("2024-01-15 10:00:00", 250, 50))
         );
 
         ReturnsResponse resp = service.computeNps(req);
-        // p adds 25 to remanent: 50 + 25 = 75
         assertEquals(75.0, resp.savingsByDates().get(0).amount());
     }
 
@@ -187,26 +188,26 @@ class ReturnsServiceTest {
     @Test
     void emptyTransactions_returnsZeros() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                30, 50_000L, 0.0, List.of(), List.of()));
+                30, 50_000.0, 0.0, List.of(), List.of()));
 
-        assertEquals(0L, resp.transactionsTotalAmount());
-        assertEquals(0L, resp.transactionsTotalCeiling());
+        assertEquals(0.0, resp.transactionsTotalAmount());
+        assertEquals(0.0, resp.transactionsTotalCeiling());
         assertTrue(resp.savingsByDates().isEmpty());
     }
 
     @Test
     void nullTransactions_returnsZeros() {
         ReturnsResponse resp = service.computeNps(new ReturnsRequest(
-                30, 50_000L, 0.0, null, null, null, null));
+                30, 50_000.0, 0.0, null, null, null, null));
 
-        assertEquals(0L, resp.transactionsTotalAmount());
+        assertEquals(0.0, resp.transactionsTotalAmount());
         assertTrue(resp.savingsByDates().isEmpty());
     }
 
     @Test
     void multipleKPeriods_separateResults() {
         ReturnsResponse resp = service.computeNps(basicRequest(
-                30, 50_000L, 0.0,
+                30, 50_000.0, 0.0,
                 List.of(
                         txn("2024-01-15 10:00:00", 250, 50),
                         txn("2024-06-15 10:00:00", 300, 100)

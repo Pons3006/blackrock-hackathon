@@ -1,3 +1,8 @@
+/**
+ * Test type: Unit test
+ * Validation: TimeUtils — epoch second conversion, round-trip parsing, null/blank/malformed input handling
+ * Command: mvn test -Dtest=TimeUtilsTest
+ */
 package com.ponshankar.hackathon.blackrock.util;
 
 import org.junit.jupiter.api.Test;
@@ -35,8 +40,21 @@ class TimeUtilsTest {
     void toEpochSeconds_malformedInput() {
         assertNull(TimeUtils.toEpochSeconds("not-a-date"));
         assertNull(TimeUtils.toEpochSeconds("2024-13-01 00:00:00"));
-        assertNull(TimeUtils.toEpochSeconds("2024-01-15"));
         assertNull(TimeUtils.toEpochSeconds("2024/01/15 10:30:00"));
+    }
+
+    @Test
+    void toEpochSeconds_dateOnly() {
+        Long epoch = TimeUtils.toEpochSeconds("2024-01-15");
+        assertNotNull(epoch);
+        assertEquals("2024-01-15 00:00:00", TimeUtils.fromEpochSeconds(epoch));
+    }
+
+    @Test
+    void toEpochSeconds_dateOnly_unixEpoch() {
+        Long epoch = TimeUtils.toEpochSeconds("1970-01-01");
+        assertNotNull(epoch);
+        assertEquals(0L, epoch);
     }
 
     @Test

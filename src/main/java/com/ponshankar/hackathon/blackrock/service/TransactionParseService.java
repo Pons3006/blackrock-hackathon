@@ -20,14 +20,14 @@ public class TransactionParseService {
         }
 
         List<Transaction> transactions = new ArrayList<>(expenses.size());
-        long amountSum = 0;
-        long ceilingSum = 0;
-        long remanentSum = 0;
+        double amountSum = 0;
+        double ceilingSum = 0;
+        double remanentSum = 0;
 
         for (Expense expense : expenses) {
-            long amount = expense.amount();
-            long ceiling = ((amount + 99) / 100) * 100;
-            long remanent = ceiling - amount;
+            double amount = expense.amount();
+            double ceiling = Math.ceil(amount / 100.0) * 100;
+            double remanent = ceiling - amount;
 
             transactions.add(new Transaction(
                     expense.timestamp(), amount, ceiling, remanent));

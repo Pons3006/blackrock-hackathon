@@ -12,7 +12,7 @@ public final class PeriodEngine {
 
     private PeriodEngine() {}
 
-    public record SortedTransactions(long[] epochs, long[] remanents) {}
+    public record SortedTransactions(long[] epochs, double[] remanents) {}
 
     /**
      * Parses and sorts transactions by epoch seconds ascending.
@@ -21,7 +21,7 @@ public final class PeriodEngine {
     public static SortedTransactions sortByDate(List<Transaction> transactions) {
         int n = transactions.size();
 
-        record Pair(long epoch, long remanent) {}
+        record Pair(long epoch, double remanent) {}
         Pair[] pairs = new Pair[n];
         for (int i = 0; i < n; i++) {
             Transaction t = transactions.get(i);
@@ -30,7 +30,7 @@ public final class PeriodEngine {
         Arrays.sort(pairs, Comparator.comparingLong(Pair::epoch));
 
         long[] epochs = new long[n];
-        long[] remanents = new long[n];
+        double[] remanents = new double[n];
         for (int i = 0; i < n; i++) {
             epochs[i] = pairs[i].epoch;
             remanents[i] = pairs[i].remanent;
@@ -43,13 +43,13 @@ public final class PeriodEngine {
      * Modifies {@code remanents} in place. Both arrays must be sorted by epoch ascending.
      * Complexity: O((n + q) log q).
      */
-    public static void applyQOverrides(long[] epochs, long[] remanents, List<Period> qPeriods) {
+    public static void applyQOverrides(long[] epochs, double[] remanents, List<Period> qPeriods) {
         if (qPeriods == null || qPeriods.isEmpty()) return;
 
         int n = epochs.length;
         int q = qPeriods.size();
 
-        record QEntry(long start, long end, long fixed, int index) {}
+        record QEntry(long start, long end, double fixed, int index) {}
         QEntry[] entries = new QEntry[q];
         for (int i = 0; i < q; i++) {
             Period p = qPeriods.get(i);
@@ -61,7 +61,6 @@ public final class PeriodEngine {
         }
         Arrays.sort(entries, Comparator.comparingLong(QEntry::start));
 
-        // max-heap: highest start wins, ties broken by smallest original index
         PriorityQueue<QEntry> heap = new PriorityQueue<>((a, b) ->
                 a.start != b.start
                         ? Long.compare(b.start, a.start)
@@ -88,13 +87,13 @@ public final class PeriodEngine {
      * Modifies {@code remanents} in place. Both arrays must be sorted by epoch ascending.
      * Complexity: O((n + p) log p).
      */
-    public static void applyPExtras(long[] epochs, long[] remanents, List<Period> pPeriods) {
+    public static void applyPExtras(long[] epochs, double[] remanents, List<Period> pPeriods) {
         if (pPeriods == null || pPeriods.isEmpty()) return;
 
         int n = epochs.length;
         int p = pPeriods.size();
 
-        record PEntry(long start, long end, long extra) {}
+        record PEntry(long start, long end, double extra) {}
         PEntry[] entries = new PEntry[p];
         for (int i = 0; i < p; i++) {
             Period pd = pPeriods.get(i);
@@ -105,23 +104,22 @@ public final class PeriodEngine {
         }
         Arrays.sort(entries, Comparator.comparingLong(PEntry::start));
 
-        // min-heap by end, so we can efficiently expire the earliest-ending periods
         PriorityQueue<PEntry> activeHeap = new PriorityQueue<>(
                 Comparator.comparingLong(PEntry::end));
 
-        long extraSum = 0;
+        double extraSum = 0;
         int pi = 0;
 
         for (int ti = 0; ti < n; ti++) {
             long t = epochs[ti];
 
-            while (!activeHeap.isEmpty() && activeHeap.peek().end < t) {
-                extraSum -= activeHeap.poll().extra;
-            }
             while (pi < p && entries[pi].start <= t) {
                 activeHeap.offer(entries[pi]);
                 extraSum += entries[pi].extra;
                 pi++;
+            }
+            while (!activeHeap.isEmpty() && activeHeap.peek().end < t) {
+                extraSum -= activeHeap.poll().extra;
             }
 
             remanents[ti] += extraSum;
@@ -133,17 +131,17 @@ public final class PeriodEngine {
      * Both arrays must be sorted by epoch ascending.
      * Returns one sum per k period. Complexity: O(n + k log n).
      */
-    public static long[] groupByKPeriods(long[] epochs, long[] remanents, List<Period> kPeriods) {
-        if (kPeriods == null || kPeriods.isEmpty()) return new long[0];
+    public static double[] groupByKPeriods(long[] epochs, double[] remanents, List<Period> kPeriods) {
+        if (kPeriods == null || kPeriods.isEmpty()) return new double[0];
 
         int n = epochs.length;
-        long[] prefix = new long[n + 1];
+        double[] prefix = new double[n + 1];
         for (int i = 0; i < n; i++) {
             prefix[i + 1] = prefix[i] + remanents[i];
         }
 
         int k = kPeriods.size();
-        long[] sums = new long[k];
+        double[] sums = new double[k];
 
         for (int i = 0; i < k; i++) {
             Period p = kPeriods.get(i);

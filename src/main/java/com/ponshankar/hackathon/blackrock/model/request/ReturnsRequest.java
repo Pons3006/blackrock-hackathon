@@ -8,7 +8,7 @@ import java.util.List;
 
 public record ReturnsRequest(
         @JsonProperty("age") Integer age,
-        @JsonProperty("wage") Long wage,
+        @JsonProperty("wage") Double wage,
         @JsonProperty("inflation") Double inflation,
         @JsonProperty("q") List<Period> q,
         @JsonProperty("p") List<Period> p,
