@@ -90,23 +90,46 @@ paths:
         Validates a list of transactions against wage constraints and data integrity rules.
         Returns categorized lists of valid, invalid, and duplicate transactions.
         Invalid transactions include a `message` field explaining the error.
+
+        **Validation rules:**
+        - Wage must be non-negative
+        - Date must be a valid timestamp
+        - Amount: `0 <= amount < 500,000`
+        - Ceiling: must be a multiple of 100, `>= amount`, and `ceiling - amount < 100`
+        - Remanent: must equal `ceiling - amount`
+        - Duplicate detection: transactions with the same date are flagged as duplicates
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ValidatorRequest'
-            example:
-              wage: 50000
-              transactions:
-                - date: "2023-10-12 20:15:00"
-                  amount: 250.0
-                  ceiling: 300.0
-                  remanent: 50.0
-                - date: "2023-10-12 20:15:00"
-                  amount: 250.0
-                  ceiling: 300.0
-                  remanent: 50.0
+            examples:
+              mixed:
+                summary: Valid, duplicate, and negative entries
+                value:
+                  wage: 50000
+                  transactions:
+                    - date: "2023-10-12 20:15:00"
+                      amount: 250.0
+                      ceiling: 300.0
+                      remanent: 50.0
+                    - date: "2023-10-12 20:15:00"
+                      amount: 375.0
+                      ceiling: 400.0
+                      remanent: 25.0
+                    - date: "2023-02-28 15:49:00"
+                      amount: -100.0
+                      ceiling: 0.0
+                      remanent: 100.0
+                    - date: "2023-03-15 10:00:00"
+                      amount: 250.0
+                      ceiling: 300.0
+                      remanent: -50.0
+                    - date: "2023-07-01 21:59:00"
+                      amount: 620.0
+                      ceiling: 700.0
+                      remanent: 80.0
       responses:
         '200':
           description: Validation results
@@ -114,6 +137,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidatorResponse'
+              example:
+                valid:
+                  - date: "2023-10-12 20:15:00"
+                    amount: 250.0
+                    ceiling: 300.0
+                    remanent: 50.0
+                  - date: "2023-07-01 21:59:00"
+                    amount: 620.0
+                    ceiling: 700.0
+                    remanent: 80.0
+                invalid:
+                  - date: "2023-02-28 15:49:00"
+                    amount: -100.0
+                    ceiling: 0.0
+                    remanent: 100.0
+                    message: "Amount must be >= 0 and < 500000"
+                  - date: "2023-03-15 10:00:00"
+                    amount: 250.0
+                    ceiling: 300.0
+                    remanent: -50.0
+                    message: "Remanent must equal ceiling - amount"
+                duplicate:
+                  - date: "2023-10-12 20:15:00"
+                    amount: 375.0
+                    ceiling: 400.0
+                    remanent: 25.0
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -134,6 +183,14 @@ paths:
         3. **k periods** (evaluation grouping): Transactions are grouped into k date ranges;
            a transaction may belong to multiple k periods.
 
+        **Validation rules (applied before filtering):**
+        - Date must be a valid timestamp
+        - Amount: `0 <= amount < 500,000`
+        - Ceiling: must be non-negative
+        - Remanent: must be non-negative
+        - Duplicate detection: transactions with the same date are rejected
+        - Coverage: transaction must fall within at least one k-period range
+
         Returns valid and invalid transactions after applying all period rules.
       requestBody:
         required: true
@@ -141,29 +198,46 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/FilterRequest'
-            example:
-              q:
-                - fixed: 0
-                  start: "2023-07-01 00:00:00"
-                  end: "2023-07-31 23:59:00"
-              p:
-                - extra: 25
-                  start: "2023-10-01 08:00:00"
-                  end: "2023-12-31 19:59:00"
-              k:
-                - start: "2023-03-01 00:00:00"
-                  end: "2023-11-30 23:59:00"
-                - start: "2023-01-01 00:00:00"
-                  end: "2023-12-31 23:59:00"
-              transactions:
-                - date: "2023-10-12 20:15:00"
-                  amount: 250.0
-                  ceiling: 300.0
-                  remanent: 50.0
-                - date: "2023-02-28 15:49:00"
-                  amount: 375.0
-                  ceiling: 400.0
-                  remanent: 25.0
+            examples:
+              mixed:
+                summary: Valid, duplicate, and negative entries
+                value:
+                  q:
+                    - fixed: 0
+                      start: "2023-07-01 00:00:00"
+                      end: "2023-07-31 23:59:00"
+                  p:
+                    - extra: 25
+                      start: "2023-10-01 08:00:00"
+                      end: "2023-12-31 19:59:00"
+                  k:
+                    - start: "2023-01-01 00:00:00"
+                      end: "2023-12-31 23:59:00"
+                  transactions:
+                    - date: "2023-10-12 20:15:00"
+                      amount: 250.0
+                      ceiling: 300.0
+                      remanent: 50.0
+                    - date: "2023-10-12 20:15:00"
+                      amount: 375.0
+                      ceiling: 400.0
+                      remanent: 25.0
+                    - date: "2023-02-28 15:49:00"
+                      amount: -100.0
+                      ceiling: 0.0
+                      remanent: 100.0
+                    - date: "2023-03-15 10:00:00"
+                      amount: 150.0
+                      ceiling: -100.0
+                      remanent: 50.0
+                    - date: "2023-04-20 14:30:00"
+                      amount: 200.0
+                      ceiling: 300.0
+                      remanent: -50.0
+                    - date: "2023-07-01 21:59:00"
+                      amount: 620.0
+                      ceiling: 700.0
+                      remanent: 80.0
       responses:
         '200':
           description: Filtered transactions
@@ -171,6 +245,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FilterResponse'
+              example:
+                valid:
+                  - date: "2023-10-12 20:15:00"
+                    amount: 250.0
+                    ceiling: 300.0
+                    remanent: 50.0
+                  - date: "2023-07-01 21:59:00"
+                    amount: 620.0
+                    ceiling: 700.0
+                    remanent: 80.0
+                invalid:
+                  - date: "2023-10-12 20:15:00"
+                    amount: 375.0
+                    ceiling: 400.0
+                    remanent: 25.0
+                    message: "Duplicate transaction"
+                  - date: "2023-02-28 15:49:00"
+                    amount: -100.0
+                    ceiling: 0.0
+                    remanent: 100.0
+                    message: "Amount must be >= 0 and < 500000"
+                  - date: "2023-03-15 10:00:00"
+                    amount: 150.0
+                    ceiling: -100.0
+                    remanent: 50.0
+                    message: "Ceiling must be non-negative"
+                  - date: "2023-04-20 14:30:00"
+                    amount: 200.0
+                    ceiling: 300.0
+                    remanent: -50.0
+                    message: "Remanent must be non-negative"
         '400':
           $ref: '#/components/responses/BadRequest'
 

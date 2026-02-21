@@ -262,6 +262,61 @@ mvn test -Dtest=ReturnsServiceTest
 Test files are located under `src/test/java/` and include metadata comments specifying
 test type, validation scope, and execution command as required by the challenge.
 
+### Stress Test — 100K Transactions
+
+A dedicated stress test (`StressTest.java`) validates that every endpoint handles
+**100,000 transactions** within a **1-second latency budget** per call. A full pipeline
+test (parse → validate → returns) must complete within 3 seconds.
+
+```bash
+mvn test -Pstress
+```
+
+| Endpoint | Transactions | Latency | Status |
+|----------|-------------|---------|--------|
+| `transactions:parse` | 100,000 | 353 ms | PASS |
+| `transactions:validator` | 100,000 | 290 ms | PASS |
+| `transactions:filter` | 100,000 | 365 ms | PASS |
+| `returns:nps` | 100,000 | 181 ms | PASS |
+| `returns:index` | 100,000 | 156 ms | PASS |
+| `performance` | — | 1.6 ms | PASS |
+
+#### Distributed Traces (Jaeger)
+
+All endpoints are instrumented with OpenTelemetry. The stress test run produces
+distributed traces exported to Jaeger via OTLP, giving full visibility into per-span
+durations, transaction counts, and service metadata.
+
+![Jaeger traces for 100K stress test](docs/images/jaeger-stress-test-100k.png)
+
+Each trace contains two spans: an HTTP server span and an internal service span with
+rich attributes — `transaction.count`, `total.amount`, `total.ceiling`, `returns.rate`,
+`projection.years`, and more. A sample export is available at
+[`docs/traces/stress-test-100k-traces.json`](docs/traces/stress-test-100k-traces.json)
+(Jaeger JSON format, importable via the Jaeger UI).
+
+<details>
+<summary>Sample trace span (NPS returns, 100K transactions)</summary>
+
+```json
+{
+  "traceID": "ba9502d285d8442c7f2f7d1cba1fe1d9",
+  "operationName": "compute-nps-returns",
+  "duration": 105642,
+  "tags": [
+    { "key": "transaction.count", "type": "int64", "value": 100000 },
+    { "key": "total.amount", "type": "float64", "value": 25444908 },
+    { "key": "total.ceiling", "type": "float64", "value": 30319700 },
+    { "key": "returns.rate", "type": "float64", "value": 0.0711 },
+    { "key": "returns.type", "type": "string", "value": "NPS" },
+    { "key": "projection.years", "type": "int64", "value": 30 },
+    { "key": "projection.inflation", "type": "float64", "value": 0.06 }
+  ]
+}
+```
+
+</details>
+
 ## Project Structure
 
 ```
