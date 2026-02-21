@@ -6,6 +6,7 @@ import com.ponshankar.hackathon.blackrock.model.request.FilterRequest;
 import com.ponshankar.hackathon.blackrock.model.response.FilterResponse;
 import com.ponshankar.hackathon.blackrock.util.TimeUtils;
 import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.Span;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -29,6 +30,7 @@ public class TransactionFilterService {
 
         List<Transaction> transactions = request.transactions();
         if (transactions == null || transactions.isEmpty()) {
+            Span.current().setAttribute("transaction.input.count", 0);
             return new FilterResponse(List.of(), List.of());
         }
 
@@ -60,6 +62,12 @@ public class TransactionFilterService {
                         "Not covered by any k period"));
             }
         }
+
+        Span span = Span.current();
+        span.setAttribute("transaction.input.count", transactions.size());
+        span.setAttribute("transaction.valid.count", valid.size());
+        span.setAttribute("transaction.invalid.count", invalid.size());
+        span.setAttribute("k.period.count", request.k() != null ? request.k().size() : 0);
 
         return new FilterResponse(valid, invalid);
     }

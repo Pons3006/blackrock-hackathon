@@ -2,6 +2,7 @@ package com.ponshankar.hackathon.blackrock.service;
 
 import com.ponshankar.hackathon.blackrock.model.response.PerformanceResponse;
 import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.Span;
 import org.springframework.stereotype.Service;
 
 import java.lang.management.ManagementFactory;
@@ -32,6 +33,12 @@ public class PerformanceService {
         String time = String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, millis);
 
         int threads = threadBean.getThreadCount();
+
+        Span span = Span.current();
+        span.setAttribute("jvm.heap.used.bytes", heapUsedBytes);
+        span.setAttribute("jvm.heap.used.mb", String.format("%.2f", heapUsedBytes / (1024.0 * 1024.0)));
+        span.setAttribute("jvm.threads.count", threads);
+        span.setAttribute("app.uptime.ms", totalMillis);
 
         return new PerformanceResponse(time, memory, threads);
     }

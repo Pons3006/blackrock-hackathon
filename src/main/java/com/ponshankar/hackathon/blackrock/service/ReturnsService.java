@@ -8,6 +8,7 @@ import com.ponshankar.hackathon.blackrock.model.response.ReturnsResponse;
 import com.ponshankar.hackathon.blackrock.util.PeriodEngine;
 import com.ponshankar.hackathon.blackrock.util.TaxUtils;
 import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.Span;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,17 +22,23 @@ public class ReturnsService {
 
     @Observed(name = "returns.compute-nps", contextualName = "compute-nps-returns")
     public ReturnsResponse computeNps(ReturnsRequest request) {
+        Span.current().setAttribute("returns.type", "NPS");
+        Span.current().setAttribute("returns.rate", NPS_RATE);
         return compute(request, NPS_RATE, true);
     }
 
     @Observed(name = "returns.compute-index", contextualName = "compute-index-returns")
     public ReturnsResponse computeIndex(ReturnsRequest request) {
+        Span.current().setAttribute("returns.type", "INDEX");
+        Span.current().setAttribute("returns.rate", INDEX_RATE);
         return compute(request, INDEX_RATE, false);
     }
 
     private ReturnsResponse compute(ReturnsRequest request, double rate, boolean nps) {
+        Span span = Span.current();
         List<Transaction> transactions = request.transactions();
         if (transactions == null || transactions.isEmpty()) {
+            span.setAttribute("transaction.count", 0);
             return new ReturnsResponse(0.0, 0.0, List.of());
         }
 
@@ -77,6 +84,13 @@ public class ReturnsService {
                     profits,
                     taxBenefit));
         }
+
+        span.setAttribute("transaction.count", transactions.size());
+        span.setAttribute("total.amount", totalAmount);
+        span.setAttribute("total.ceiling", totalCeiling);
+        span.setAttribute("projection.years", years);
+        span.setAttribute("projection.inflation", inflation);
+        span.setAttribute("k.period.count", kSums.length);
 
         return new ReturnsResponse(totalAmount, totalCeiling, savingsByDates);
     }

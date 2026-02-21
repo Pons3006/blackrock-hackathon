@@ -6,6 +6,7 @@ import com.ponshankar.hackathon.blackrock.model.Transaction;
 import com.ponshankar.hackathon.blackrock.model.request.ParseRequest;
 import com.ponshankar.hackathon.blackrock.model.response.ParseResponse;
 import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.Span;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,6 +19,8 @@ public class TransactionParseService {
     public ParseResponse parse(ParseRequest request) {
         List<Expense> expenses = request.expenses();
         if (expenses == null || expenses.isEmpty()) {
+            Span.current().setAttribute("expense.count", 0);
+            Span.current().setAttribute("transaction.count", 0);
             return new ParseResponse(List.of(), null);
         }
 
@@ -38,7 +41,14 @@ public class TransactionParseService {
             ceilingSum += ceiling;
             remanentSum += remanent;
         }
-        //Not in requirements but added for convenience
+
+        Span span = Span.current();
+        span.setAttribute("expense.count", expenses.size());
+        span.setAttribute("transaction.count", transactions.size());
+        span.setAttribute("total.amount", amountSum);
+        span.setAttribute("total.ceiling", ceilingSum);
+        span.setAttribute("total.remanent", remanentSum);
+
         Totals totals = new Totals(amountSum, ceilingSum, remanentSum);
         return new ParseResponse(transactions, totals);
     }

@@ -5,6 +5,7 @@ import com.ponshankar.hackathon.blackrock.model.request.ValidatorRequest;
 import com.ponshankar.hackathon.blackrock.model.response.ValidatorResponse;
 import com.ponshankar.hackathon.blackrock.util.TimeUtils;
 import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.Span;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ public class TransactionValidatorService {
 
         List<Transaction> transactions = request.transactions();
         if (transactions == null) {
+            Span.current().setAttribute("transaction.input.count", 0);
             return new ValidatorResponse(valid, invalid, duplicate);
         }
 
@@ -45,6 +47,12 @@ public class TransactionValidatorService {
             }
             valid.add(txn);
         }
+
+        Span span = Span.current();
+        span.setAttribute("transaction.input.count", transactions.size());
+        span.setAttribute("transaction.valid.count", valid.size());
+        span.setAttribute("transaction.invalid.count", invalid.size());
+        span.setAttribute("transaction.duplicate.count", duplicate.size());
 
         return new ValidatorResponse(valid, invalid, duplicate);
     }
