@@ -1,8 +1,16 @@
 package com.ponshankar.hackathon.blackrock.service;
 
+import com.ponshankar.hackathon.blackrock.model.Period;
+import com.ponshankar.hackathon.blackrock.model.SavingsByDate;
+import com.ponshankar.hackathon.blackrock.model.Transaction;
 import com.ponshankar.hackathon.blackrock.model.request.ReturnsRequest;
 import com.ponshankar.hackathon.blackrock.model.response.ReturnsResponse;
+import com.ponshankar.hackathon.blackrock.util.PeriodEngine;
+import com.ponshankar.hackathon.blackrock.util.TaxUtils;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class ReturnsService {
@@ -11,12 +19,62 @@ public class ReturnsService {
     private static final double INDEX_RATE = 0.1449;
 
     public ReturnsResponse computeNps(ReturnsRequest request) {
-        // TODO: implement NPS returns with tax benefit
-        throw new UnsupportedOperationException("Not yet implemented");
+        return compute(request, NPS_RATE, true);
     }
 
     public ReturnsResponse computeIndex(ReturnsRequest request) {
-        // TODO: implement index fund returns
-        throw new UnsupportedOperationException("Not yet implemented");
+        return compute(request, INDEX_RATE, false);
+    }
+
+    private ReturnsResponse compute(ReturnsRequest request, double rate, boolean nps) {
+        List<Transaction> transactions = request.transactions();
+        if (transactions == null || transactions.isEmpty()) {
+            return new ReturnsResponse(0L, 0L, List.of());
+        }
+
+        long totalAmount = 0;
+        long totalCeiling = 0;
+        for (Transaction txn : transactions) {
+            totalAmount += txn.amount();
+            totalCeiling += txn.ceiling();
+        }
+
+        PeriodEngine.SortedTransactions sorted = PeriodEngine.sortByDate(transactions);
+        long[] epochs = sorted.epochs();
+        long[] remanents = sorted.remanents();
+
+        PeriodEngine.applyQOverrides(epochs, remanents, request.q());
+        PeriodEngine.applyPExtras(epochs, remanents, request.p());
+
+        long[] kSums = PeriodEngine.groupByKPeriods(epochs, remanents, request.k());
+
+        int years = (request.age() != null && request.age() < 60)
+                ? (60 - request.age()) : 5;
+        double inflation = request.inflation() != null ? request.inflation() : 0.0;
+        double annualIncome = request.wage() != null ? request.wage() * 12.0 : 0.0;
+
+        List<Period> kPeriods = request.k();
+        List<SavingsByDate> savingsByDates = new ArrayList<>(kSums.length);
+
+        for (int i = 0; i < kSums.length; i++) {
+            double amount = kSums[i];
+            double finalNominal = amount * Math.pow(1 + rate, years);
+            double finalReal = finalNominal / Math.pow(1 + inflation, years);
+            double profits = finalReal - amount;
+
+            double taxBenefit = 0.0;
+            if (nps && annualIncome > 0) {
+                taxBenefit = TaxUtils.npsTaxBenefit(amount, annualIncome);
+            }
+
+            savingsByDates.add(new SavingsByDate(
+                    kPeriods.get(i).start(),
+                    kPeriods.get(i).end(),
+                    amount,
+                    profits,
+                    taxBenefit));
+        }
+
+        return new ReturnsResponse(totalAmount, totalCeiling, savingsByDates);
     }
 }
