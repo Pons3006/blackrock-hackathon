@@ -6,65 +6,59 @@ on:
   pull_request:
     branches: ["**"]
 
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   unit-test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
-    container: eclipse-temurin:21-jdk-alpine
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore Maven cache
-        uses: actions/cache@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ github.ref_name }}-${{ hashFiles('pom.xml') }}
-          restore-keys: |
-            maven-${{ github.ref_name }}-
-            maven-
-
-      - name: Install Maven
-        run: apk add --no-cache maven
+          distribution: temurin
+          java-version: "21"
+          cache: maven
 
       - name: Run tests
         run: mvn test -q
 
-      - name: Upload test reports
+      - name: Publish test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: dorny/test-reporter@v1
         with:
-          name: unit-test-reports
-          path: target/surefire-reports/
+          name: Unit Test Results
+          path: target/surefire-reports/TEST-*.xml
+          reporter: java-junit
 
   performance-test:
     name: Performance / Stress Tests
     needs: unit-test
     runs-on: ubuntu-latest
-    container: eclipse-temurin:21-jdk-alpine
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore Maven cache
-        uses: actions/cache@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          path: ~/.m2/repository
-          key: maven-${{ github.ref_name }}-${{ hashFiles('pom.xml') }}
-          restore-keys: |
-            maven-${{ github.ref_name }}-
-            maven-
-
-      - name: Install Maven
-        run: apk add --no-cache maven
+          distribution: temurin
+          java-version: "21"
+          cache: maven
 
       - name: Run stress tests
         run: mvn test -Pstress -q
 
-      - name: Upload test reports
+      - name: Publish test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: dorny/test-reporter@v1
         with:
-          name: stress-test-reports
-          path: target/surefire-reports/
+          name: Stress Test Results
+          path: target/surefire-reports/TEST-*.xml
+          reporter: java-junit
 
   docker-build:
     name: Docker Build
