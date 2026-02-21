@@ -7,8 +7,6 @@ import com.ponshankar.hackathon.blackrock.model.response.FilterResponse;
 import com.ponshankar.hackathon.blackrock.util.TimeUtils;
 import io.micrometer.observation.annotation.Observed;
 import io.opentelemetry.api.trace.Span;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -23,14 +21,8 @@ import java.util.Set;
 @Service
 public class TransactionFilterService {
 
-    private static final Logger log = LoggerFactory.getLogger(TransactionFilterService.class);
-
     @Observed(name = "transaction.filter", contextualName = "filter-transactions")
     public FilterResponse filter(FilterRequest request) {
-        log.debug("Validating period definitions: q={}, p={}, k={}",
-                request.q() != null ? request.q().size() : 0,
-                request.p() != null ? request.p().size() : 0,
-                request.k() != null ? request.k().size() : 0);
         validatePeriods("q", request.q());
         validatePeriods("p", request.p());
         validatePeriods("k", request.k());
@@ -38,12 +30,10 @@ public class TransactionFilterService {
 
         List<Transaction> transactions = request.transactions();
         if (transactions == null || transactions.isEmpty()) {
-            log.debug("No transactions provided, returning empty response");
             Span.current().setAttribute("transaction.input.count", 0);
             return new FilterResponse(List.of(), List.of());
         }
 
-        log.debug("Filtering {} transactions against k-period coverage", transactions.size());
         List<long[]> kRanges = toEpochRanges(request.k());
 
         List<Transaction> valid = new ArrayList<>();
@@ -79,9 +69,6 @@ public class TransactionFilterService {
         span.setAttribute("transaction.invalid.count", invalid.size());
         span.setAttribute("k.period.count", request.k() != null ? request.k().size() : 0);
 
-        log.info("Filtered {} transactions: valid={}, invalid={}, kPeriods={}",
-                transactions.size(), valid.size(), invalid.size(),
-                request.k() != null ? request.k().size() : 0);
         return new FilterResponse(valid, invalid);
     }
 

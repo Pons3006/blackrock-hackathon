@@ -1,7 +1,5 @@
 package com.ponshankar.hackathon.blackrock.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.stereotype.Component;
@@ -13,8 +11,6 @@ import java.time.Instant;
 
 @Component("api")
 public class ApiHealthIndicator implements HealthIndicator {
-
-    private static final Logger log = LoggerFactory.getLogger(ApiHealthIndicator.class);
 
     private static final double HEAP_USAGE_WARN_THRESHOLD = 0.85;
     private static final double MAX_LATENCY_WARN_MS = 5_000;
@@ -38,14 +34,9 @@ public class ApiHealthIndicator implements HealthIndicator {
         long totalRequests = latencyInterceptor.getTotalRequests();
         Duration uptime = Duration.between(startTime, Instant.now());
 
-        boolean degraded = heapRatio > HEAP_USAGE_WARN_THRESHOLD || maxLatencyMs > MAX_LATENCY_WARN_MS;
-        Health.Builder builder = degraded ? Health.down() : Health.up();
-
-        if (degraded) {
-            log.warn("Health check DOWN: heapUsage={}%, maxLatency={}ms",
-                    String.format("%.1f", heapRatio * 100),
-                    String.format("%.2f", maxLatencyMs));
-        }
+        Health.Builder builder = (heapRatio > HEAP_USAGE_WARN_THRESHOLD || maxLatencyMs > MAX_LATENCY_WARN_MS)
+                ? Health.down()
+                : Health.up();
 
         return builder
                 .withDetail("uptime", formatDuration(uptime))

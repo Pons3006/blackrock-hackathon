@@ -1,8 +1,5 @@
 package com.ponshankar.hackathon.blackrock.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -10,8 +7,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 public final class TimeUtils {
-
-    private static final Logger log = LoggerFactory.getLogger(TimeUtils.class);
 
     public static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -39,7 +34,6 @@ public final class TimeUtils {
                 LocalDate ld = LocalDate.parse(trimmed, DATE_ONLY_FORMAT);
                 return ld.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
             } catch (DateTimeParseException e2) {
-                log.warn("Unparseable timestamp: '{}'", trimmed);
                 return null;
             }
         }
