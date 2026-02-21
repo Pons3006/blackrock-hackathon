@@ -15,6 +15,11 @@ spring:
   codec:
     max-in-memory-size: 50MB
 
+springdoc:
+  swagger-ui:
+    path: /
+    url: /openapi.yaml
+
 management:
   endpoints:
     web:
