@@ -1,0 +1,14 @@
+server:
+  port: 5477
+  tomcat:
+    max-http-form-post-size: 50MB
+
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-request-size: 50MB
+  codec:
+    max-in-memory-size: 50MB
