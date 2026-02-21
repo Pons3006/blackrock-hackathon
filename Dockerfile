@@ -2,6 +2,7 @@
 # Run:   docker run -p 5477:5477 blk-hacking-ind-ponshankar-balasubramaniyam
 
 # ── Stage 1: Build ──────────────────────────────────────────────────
+# Alpine Linux — minimal footprint for faster CI builds; JDK layer discarded after compile.
 FROM eclipse-temurin:21-jdk-alpine AS build
 
 WORKDIR /build
@@ -13,10 +14,10 @@ RUN apk add --no-cache maven \
     && mvn clean package -DskipTests -q
 
 # ── Stage 2: Runtime ────────────────────────────────────────────────
-# Alpine chosen for minimal image size (~180 MB vs ~400 MB with Debian),
-# fast pull/deploy times, and reduced attack surface while still
-# providing full glibc compatibility via Eclipse Temurin.
-FROM eclipse-temurin:21-jre-alpine AS runtime
+# Alpine Linux chosen for minimal image size (~180 MB vs ~400 MB with Debian),
+# fast pull/deploy times, and reduced attack surface while still providing
+# full glibc compatibility via Eclipse Temurin.
+FROM eclipse-temurin:21-jre-alpine AS runtime  # OS: Alpine Linux (see criteria above)
 
 WORKDIR /app
 
