@@ -2,6 +2,8 @@ package com.ponshankar.hackathon.blackrock.util;
 
 import com.ponshankar.hackathon.blackrock.model.Period;
 import com.ponshankar.hackathon.blackrock.model.Transaction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -9,6 +11,8 @@ import java.util.List;
 import java.util.PriorityQueue;
 
 public final class PeriodEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(PeriodEngine.class);
 
     private PeriodEngine() {}
 
@@ -45,6 +49,7 @@ public final class PeriodEngine {
      */
     public static void applyQOverrides(long[] epochs, double[] remanents, List<Period> qPeriods) {
         if (qPeriods == null || qPeriods.isEmpty()) return;
+        log.debug("Applying {} q-period overrides to {} transactions", qPeriods.size(), epochs.length);
 
         int n = epochs.length;
         int q = qPeriods.size();
@@ -89,6 +94,7 @@ public final class PeriodEngine {
      */
     public static void applyPExtras(long[] epochs, double[] remanents, List<Period> pPeriods) {
         if (pPeriods == null || pPeriods.isEmpty()) return;
+        log.debug("Applying {} p-period extras to {} transactions", pPeriods.size(), epochs.length);
 
         int n = epochs.length;
         int p = pPeriods.size();
@@ -133,6 +139,7 @@ public final class PeriodEngine {
      */
     public static double[] groupByKPeriods(long[] epochs, double[] remanents, List<Period> kPeriods) {
         if (kPeriods == null || kPeriods.isEmpty()) return new double[0];
+        log.debug("Grouping {} transactions into {} k-periods", epochs.length, kPeriods.size());
 
         int n = epochs.length;
         double[] prefix = new double[n + 1];

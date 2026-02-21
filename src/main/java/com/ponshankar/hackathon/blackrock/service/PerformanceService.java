@@ -3,6 +3,8 @@ package com.ponshankar.hackathon.blackrock.service;
 import com.ponshankar.hackathon.blackrock.model.response.PerformanceResponse;
 import io.micrometer.observation.annotation.Observed;
 import io.opentelemetry.api.trace.Span;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.lang.management.ManagementFactory;
@@ -13,6 +15,8 @@ import java.time.Instant;
 
 @Service
 public class PerformanceService {
+
+    private static final Logger log = LoggerFactory.getLogger(PerformanceService.class);
 
     private final Instant startTime = Instant.now();
 
@@ -40,6 +44,7 @@ public class PerformanceService {
         span.setAttribute("jvm.threads.count", threads);
         span.setAttribute("app.uptime.ms", totalMillis);
 
+        log.debug("JVM metrics: heap={}, threads={}, uptime={}", memory, threads, time);
         return new PerformanceResponse(time, memory, threads);
     }
 }

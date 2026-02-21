@@ -9,6 +9,8 @@ import com.ponshankar.hackathon.blackrock.util.PeriodEngine;
 import com.ponshankar.hackathon.blackrock.util.TaxUtils;
 import io.micrometer.observation.annotation.Observed;
 import io.opentelemetry.api.trace.Span;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,11 +19,14 @@ import java.util.List;
 @Service
 public class ReturnsService {
 
+    private static final Logger log = LoggerFactory.getLogger(ReturnsService.class);
+
     private static final double NPS_RATE = 0.0711;
     private static final double INDEX_RATE = 0.1449;
 
     @Observed(name = "returns.compute-nps", contextualName = "compute-nps-returns")
     public ReturnsResponse computeNps(ReturnsRequest request) {
+        log.debug("Computing NPS returns with rate={}", NPS_RATE);
         Span.current().setAttribute("returns.type", "NPS");
         Span.current().setAttribute("returns.rate", NPS_RATE);
         return compute(request, NPS_RATE, true);
@@ -29,6 +34,7 @@ public class ReturnsService {
 
     @Observed(name = "returns.compute-index", contextualName = "compute-index-returns")
     public ReturnsResponse computeIndex(ReturnsRequest request) {
+        log.debug("Computing Index returns with rate={}", INDEX_RATE);
         Span.current().setAttribute("returns.type", "INDEX");
         Span.current().setAttribute("returns.rate", INDEX_RATE);
         return compute(request, INDEX_RATE, false);
@@ -38,6 +44,7 @@ public class ReturnsService {
         Span span = Span.current();
         List<Transaction> transactions = request.transactions();
         if (transactions == null || transactions.isEmpty()) {
+            log.debug("No transactions provided, returning zero returns");
             span.setAttribute("transaction.count", 0);
             return new ReturnsResponse(0.0, 0.0, List.of());
         }
@@ -62,6 +69,9 @@ public class ReturnsService {
                 ? (60 - request.age()) : 5;
         double inflation = request.inflation() != null ? request.inflation() : 0.0;
         double annualIncome = request.wage() != null ? request.wage() * 12.0 : 0.0;
+
+        log.debug("Projection params: years={}, inflation={}, annualIncome={}, nps={}",
+                years, inflation, annualIncome, nps);
 
         List<Period> kPeriods = request.k();
         List<SavingsByDate> savingsByDates = new ArrayList<>(kSums.length);
@@ -92,6 +102,9 @@ public class ReturnsService {
         span.setAttribute("projection.inflation", inflation);
         span.setAttribute("k.period.count", kSums.length);
 
+        String type = nps ? "NPS" : "INDEX";
+        log.info("{} returns computed: {} transactions, {} k-periods, projectionYears={}",
+                type, transactions.size(), kSums.length, years);
         return new ReturnsResponse(totalAmount, totalCeiling, savingsByDates);
     }
 }

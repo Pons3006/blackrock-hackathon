@@ -44,6 +44,15 @@ management:
     tracing:
       endpoint: ${OTEL_EXPORTER_ENDPOINT:http://localhost:4318/v1/traces}
 
+logging:
+  level:
+    root: INFO
+    com.ponshankar.hackathon.blackrock: DEBUG
+    org.springframework.web: INFO
+    org.springframework.boot.actuate: WARN
+  file:
+    name: logs/micro-savings.log
+
 info:
   app:
     name: micro-savings

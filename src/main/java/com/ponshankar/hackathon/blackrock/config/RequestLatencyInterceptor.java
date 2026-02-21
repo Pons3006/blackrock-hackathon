@@ -2,6 +2,8 @@ package com.ponshankar.hackathon.blackrock.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -14,6 +16,8 @@ import java.util.concurrent.atomic.LongAdder;
  */
 @Component
 public class RequestLatencyInterceptor implements HandlerInterceptor {
+
+    private static final Logger log = LoggerFactory.getLogger(RequestLatencyInterceptor.class);
 
     private static final String START_ATTR = "requestStartNanos";
 
@@ -36,6 +40,16 @@ public class RequestLatencyInterceptor implements HandlerInterceptor {
             totalRequests.increment();
             totalLatencyNanos.add(elapsed);
             maxLatencyNanos.accumulateAndGet(elapsed, Math::max);
+
+            double elapsedMs = elapsed / 1_000_000.0;
+            log.debug("{} {} completed in {}ms (status={})",
+                    request.getMethod(), request.getRequestURI(),
+                    String.format("%.2f", elapsedMs), response.getStatus());
+            if (elapsedMs > 1000) {
+                log.warn("Slow request: {} {} took {}ms",
+                        request.getMethod(), request.getRequestURI(),
+                        String.format("%.2f", elapsedMs));
+            }
         }
     }
 
