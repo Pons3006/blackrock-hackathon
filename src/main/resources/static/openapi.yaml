@@ -1,0 +1,732 @@
+openapi: 3.0.3
+info:
+  title: Micro-Savings Retirement API
+  description: |
+    Production-grade APIs that enable automated retirement savings through expense-based
+    micro-investments. The system handles complex temporal constraints, validates financial
+    transactions, calculates investment returns across multiple investment vehicles (NPS and
+    NIFTY 50 Index Fund), and provides inflation-adjusted projections.
+  version: 1.0.0
+  contact:
+    name: BlackRock Hackathon
+
+servers:
+  - url: http://localhost:5477
+    description: Local development server
+
+tags:
+  - name: Transactions
+    description: Parse, validate, and filter financial transactions
+  - name: Returns
+    description: Calculate investment returns with NPS or Index Fund strategies
+  - name: Performance
+    description: System performance and health metrics
+
+paths:
+  /blackrock/challenge/v1/transactions:parse:
+    post:
+      tags: [Transactions]
+      operationId: parseTransactions
+      summary: Transaction Builder
+      description: |
+        Receives a list of expenses and returns enriched transactions with ceiling
+        and remanent fields. Each expense amount is rounded up to the next multiple
+        of 100 to compute the ceiling; the remanent is `ceiling - amount`.
+        Also returns aggregate totals (sum of amount, ceiling, remanent).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseRequest'
+            example:
+              expenses:
+                - timestamp: "2023-10-12 20:15:00"
+                  amount: 250
+                - timestamp: "2023-02-28 15:49:00"
+                  amount: 375
+                - timestamp: "2023-07-01 21:59:00"
+                  amount: 620
+                - timestamp: "2023-12-17 08:09:00"
+                  amount: 480
+      responses:
+        '200':
+          description: Successfully parsed transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseResponse'
+              example:
+                transactions:
+                  - date: "2023-10-12 20:15:00"
+                    amount: 250.0
+                    ceiling: 300.0
+                    remanent: 50.0
+                  - date: "2023-02-28 15:49:00"
+                    amount: 375.0
+                    ceiling: 400.0
+                    remanent: 25.0
+                  - date: "2023-07-01 21:59:00"
+                    amount: 620.0
+                    ceiling: 700.0
+                    remanent: 80.0
+                  - date: "2023-12-17 08:09:00"
+                    amount: 480.0
+                    ceiling: 500.0
+                    remanent: 20.0
+                totals:
+                  amountSum: 1725.0
+                  ceilingSum: 1900.0
+                  remanentSum: 175.0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /blackrock/challenge/v1/transactions:validator:
+    post:
+      tags: [Transactions]
+      operationId: validateTransactions
+      summary: Transaction Validator
+      description: |
+        Validates a list of transactions against wage constraints and data integrity rules.
+        Returns categorized lists of valid, invalid, and duplicate transactions.
+        Invalid transactions include a `message` field explaining the error.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidatorRequest'
+            example:
+              wage: 50000
+              transactions:
+                - date: "2023-10-12 20:15:00"
+                  amount: 250.0
+                  ceiling: 300.0
+                  remanent: 50.0
+                - date: "2023-10-12 20:15:00"
+                  amount: 250.0
+                  ceiling: 300.0
+                  remanent: 50.0
+      responses:
+        '200':
+          description: Validation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatorResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /blackrock/challenge/v1/transactions:filter:
+    post:
+      tags: [Transactions]
+      operationId: filterTransactions
+      summary: Temporal Constraints Validator
+      description: |
+        Applies temporal period rules (q, p, k) to transactions and validates them.
+
+        **Processing order:**
+        1. **q periods** (fixed-amount override): If a transaction falls within a q period,
+           its remanent is replaced with the fixed amount. When multiple q periods match,
+           the one with the latest start date wins (ties broken by list order).
+        2. **p periods** (extra-amount addition): If a transaction falls within a p period,
+           the extra amount is added to its remanent. All matching p periods stack additively.
+        3. **k periods** (evaluation grouping): Transactions are grouped into k date ranges;
+           a transaction may belong to multiple k periods.
+
+        Returns valid and invalid transactions after applying all period rules.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilterRequest'
+            example:
+              q:
+                - fixed: 0
+                  start: "2023-07-01 00:00:00"
+                  end: "2023-07-31 23:59:00"
+              p:
+                - extra: 25
+                  start: "2023-10-01 08:00:00"
+                  end: "2023-12-31 19:59:00"
+              k:
+                - start: "2023-03-01 00:00:00"
+                  end: "2023-11-30 23:59:00"
+                - start: "2023-01-01 00:00:00"
+                  end: "2023-12-31 23:59:00"
+              transactions:
+                - date: "2023-10-12 20:15:00"
+                  amount: 250.0
+                  ceiling: 300.0
+                  remanent: 50.0
+                - date: "2023-02-28 15:49:00"
+                  amount: 375.0
+                  ceiling: 400.0
+                  remanent: 25.0
+      responses:
+        '200':
+          description: Filtered transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /blackrock/challenge/v1/returns:nps:
+    post:
+      tags: [Returns]
+      operationId: calculateNpsReturns
+      summary: NPS Returns Calculation
+      description: |
+        Calculates investment returns using the **National Pension Scheme (NPS)** at 7.11%
+        annual compound interest. The investment period is `60 - age` years (minimum 5 years).
+
+        **NPS-specific rules:**
+        - Tax deduction: `min(invested, 10% of annual_income, ₹2,00,000)`
+        - Tax benefit: `Tax(income) - Tax(income - NPS_Deduction)`
+        - Returns are inflation-adjusted: `A_real = A / (1 + inflation)^t`
+
+        **Tax slabs (simplified):**
+        | Slab | Rate |
+        |---|---|
+        | ₹0 – ₹7,00,000 | 0% |
+        | ₹7,00,001 – ₹10,00,000 | 10% |
+        | ₹10,00,001 – ₹12,00,000 | 15% |
+        | ₹12,00,001 – ₹15,00,000 | 20% |
+        | Above ₹15,00,000 | 30% |
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnsRequest'
+            example:
+              age: 29
+              wage: 50000
+              inflation: 0.055
+              q:
+                - fixed: 0
+                  start: "2023-07-01 00:00:00"
+                  end: "2023-07-31 23:59:00"
+              p:
+                - extra: 25
+                  start: "2023-10-01 08:00:00"
+                  end: "2023-12-31 19:59:00"
+              k:
+                - start: "2023-01-01 00:00:00"
+                  end: "2023-12-31 23:59:00"
+              transactions:
+                - date: "2023-10-12 20:15:00"
+                  amount: 250.0
+                  ceiling: 300.0
+                  remanent: 50.0
+                - date: "2023-02-28 15:49:00"
+                  amount: 375.0
+                  ceiling: 400.0
+                  remanent: 25.0
+                - date: "2023-07-01 21:59:00"
+                  amount: 620.0
+                  ceiling: 700.0
+                  remanent: 80.0
+                - date: "2023-12-17 08:09:00"
+                  amount: 480.0
+                  ceiling: 500.0
+                  remanent: 20.0
+      responses:
+        '200':
+          description: NPS investment returns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnsResponse'
+              example:
+                transactionsTotalAmount: 1725.0
+                transactionsTotalCeiling: 1900.0
+                savingsByDates:
+                  - start: "2023-01-01 00:00:00"
+                    end: "2023-12-31 23:59:00"
+                    amount: 145.0
+                    profits: 86.88
+                    taxBenefit: 0.0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /blackrock/challenge/v1/returns:index:
+    post:
+      tags: [Returns]
+      operationId: calculateIndexReturns
+      summary: Index Fund Returns Calculation
+      description: |
+        Calculates investment returns using an **Index Fund (NIFTY 50)** at 14.49%
+        annual compound interest. The investment period is `60 - age` years (minimum 5 years).
+
+        **Index Fund rules:**
+        - No investment cap or tax rebates
+        - Returns are inflation-adjusted: `A_real = A / (1 + inflation)^t`
+        - `taxBenefit` is always 0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnsRequest'
+            example:
+              age: 29
+              wage: 50000
+              inflation: 0.055
+              q:
+                - fixed: 0
+                  start: "2023-07-01 00:00:00"
+                  end: "2023-07-31 23:59:00"
+              p:
+                - extra: 25
+                  start: "2023-10-01 08:00:00"
+                  end: "2023-12-31 19:59:00"
+              k:
+                - start: "2023-01-01 00:00:00"
+                  end: "2023-12-31 23:59:00"
+              transactions:
+                - date: "2023-10-12 20:15:00"
+                  amount: 250.0
+                  ceiling: 300.0
+                  remanent: 50.0
+                - date: "2023-02-28 15:49:00"
+                  amount: 375.0
+                  ceiling: 400.0
+                  remanent: 25.0
+                - date: "2023-07-01 21:59:00"
+                  amount: 620.0
+                  ceiling: 700.0
+                  remanent: 80.0
+                - date: "2023-12-17 08:09:00"
+                  amount: 480.0
+                  ceiling: 500.0
+                  remanent: 20.0
+      responses:
+        '200':
+          description: Index fund investment returns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnsResponse'
+              example:
+                transactionsTotalAmount: 1725.0
+                transactionsTotalCeiling: 1900.0
+                savingsByDates:
+                  - start: "2023-01-01 00:00:00"
+                    end: "2023-12-31 23:59:00"
+                    amount: 145.0
+                    profits: 1684.5
+                    taxBenefit: 0.0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /blackrock/challenge/v1/performance:
+    get:
+      tags: [Performance]
+      operationId: getPerformance
+      summary: Performance Report
+      description: |
+        Reports system execution metrics including application uptime,
+        JVM heap memory usage, and active thread count.
+      responses:
+        '200':
+          description: System performance metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceResponse'
+              example:
+                time: "00:05:32.147"
+                memory: "128.45 MB"
+                threads: 22
+
+  /actuator/health:
+    get:
+      tags: [Performance]
+      operationId: getHealth
+      summary: Health Check
+      description: |
+        Spring Boot Actuator health endpoint with custom API health indicator.
+        Reports heap memory usage, request latency stats, and uptime.
+        Status degrades to DOWN if heap usage exceeds 85% or max latency exceeds 5 seconds.
+      responses:
+        '200':
+          description: Application is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: UP
+                components:
+                  api:
+                    status: UP
+                    details:
+                      uptime: "01:23:45"
+                      heapUsedMB: "256.00"
+                      heapMaxMB: "512.00"
+                      heapUsagePercent: "50.0%"
+                      totalRequests: 1042
+                      avgLatencyMs: "12.34"
+                      maxLatencyMs: "245.67"
+                  diskSpace:
+                    status: UP
+                  ping:
+                    status: UP
+        '503':
+          description: Application is unhealthy
+
+  /actuator/info:
+    get:
+      tags: [Performance]
+      operationId: getInfo
+      summary: Application Info
+      description: |
+        Spring Boot Actuator info endpoint with application metadata,
+        Java runtime details, OS info, and live runtime statistics.
+      responses:
+        '200':
+          description: Application information
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                app:
+                  name: micro-savings
+                  description: Micro-savings Retirement API for BlackRock Hackathon
+                  version: 1.0.0
+                runtime:
+                  uptime: "01:23:45"
+                  activeThreads: 22
+                  totalRequests: 1042
+                  avgLatencyMs: "12.34"
+                  maxLatencyMs: "245.67"
+
+components:
+  schemas:
+    Expense:
+      type: object
+      required: [timestamp, amount]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Expense timestamp in "YYYY-MM-DD HH:mm:ss" format
+          example: "2023-10-12 20:15:00"
+        amount:
+          type: number
+          format: double
+          description: Expense amount in Indian Rupees (< 500,000)
+          example: 250.0
+
+    Transaction:
+      type: object
+      required: [date, amount, ceiling, remanent]
+      properties:
+        date:
+          type: string
+          format: date-time
+          description: Transaction date in "YYYY-MM-DD HH:mm:ss" format
+          example: "2023-10-12 20:15:00"
+        amount:
+          type: number
+          format: double
+          description: Original expense amount
+          example: 250.0
+        ceiling:
+          type: number
+          format: double
+          description: Amount rounded up to the next multiple of 100
+          example: 300.0
+        remanent:
+          type: number
+          format: double
+          description: Difference between ceiling and amount (savings per transaction)
+          example: 50.0
+        message:
+          type: string
+          nullable: true
+          description: Validation error message (present only for invalid transactions)
+          example: "duplicate transaction detected"
+
+    Period:
+      type: object
+      required: [start, end]
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Period start timestamp (inclusive)
+          example: "2023-07-01 00:00:00"
+        end:
+          type: string
+          format: date-time
+          description: Period end timestamp (inclusive)
+          example: "2023-07-31 23:59:00"
+        fixed:
+          type: number
+          format: double
+          nullable: true
+          description: Fixed remanent override amount (q periods only)
+          example: 0
+        extra:
+          type: number
+          format: double
+          nullable: true
+          description: Extra amount to add to remanent (p periods only)
+          example: 25
+
+    Totals:
+      type: object
+      properties:
+        amountSum:
+          type: number
+          format: double
+          description: Sum of all transaction amounts
+          example: 1725.0
+        ceilingSum:
+          type: number
+          format: double
+          description: Sum of all transaction ceilings
+          example: 1900.0
+        remanentSum:
+          type: number
+          format: double
+          description: Sum of all transaction remanents (total savings)
+          example: 175.0
+
+    SavingsByDate:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: k-period start timestamp
+          example: "2023-01-01 00:00:00"
+        end:
+          type: string
+          format: date-time
+          description: k-period end timestamp
+          example: "2023-12-31 23:59:00"
+        amount:
+          type: number
+          format: double
+          description: Total remanent invested in this k-period
+          example: 145.0
+        profits:
+          type: number
+          format: double
+          description: Inflation-adjusted compound interest profit
+          example: 86.88
+        taxBenefit:
+          type: number
+          format: double
+          description: Tax benefit from NPS deduction (0 for Index Fund)
+          example: 0.0
+
+    ParseRequest:
+      type: object
+      required: [expenses]
+      properties:
+        expenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Expense'
+          description: List of expenses to parse into transactions
+
+    ParseResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Enriched transactions with ceiling and remanent
+        totals:
+          $ref: '#/components/schemas/Totals'
+
+    ValidatorRequest:
+      type: object
+      required: [wage, transactions]
+      properties:
+        wage:
+          type: number
+          format: double
+          description: Monthly salary in Indian Rupees (pre-tax)
+          example: 50000
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions to validate
+
+    ValidatorResponse:
+      type: object
+      properties:
+        valid:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions that passed validation
+        invalid:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions that failed validation (includes message field)
+        duplicate:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Duplicate transactions detected by matching date
+
+    FilterRequest:
+      type: object
+      required: [q, p, k, transactions]
+      properties:
+        q:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          description: Fixed-amount override periods
+        p:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          description: Extra-amount addition periods
+        k:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          description: Evaluation grouping periods
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions to filter through temporal constraints
+
+    FilterResponse:
+      type: object
+      properties:
+        valid:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions that passed temporal constraint validation
+        invalid:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Transactions that failed validation (includes message field)
+
+    ReturnsRequest:
+      type: object
+      required: [age, wage, inflation, q, p, k, transactions]
+      properties:
+        age:
+          type: integer
+          description: Current age of the investor (investment period = max(60 - age, 5))
+          example: 29
+        wage:
+          type: number
+          format: double
+          description: Monthly salary in Indian Rupees (pre-tax)
+          example: 50000
+        inflation:
+          type: number
+          format: double
+          description: Annual inflation rate as a decimal (e.g. 0.055 for 5.5%)
+          example: 0.055
+        q:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          description: Fixed-amount override periods
+        p:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          description: Extra-amount addition periods
+        k:
+          type: array
+          items:
+            $ref: '#/components/schemas/Period'
+          description: Evaluation grouping periods
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          description: Enriched transactions with ceiling and remanent
+
+    ReturnsResponse:
+      type: object
+      properties:
+        transactionsTotalAmount:
+          type: number
+          format: double
+          description: Sum of all valid transaction amounts
+          example: 1725.0
+        transactionsTotalCeiling:
+          type: number
+          format: double
+          description: Sum of all valid transaction ceilings
+          example: 1900.0
+        savingsByDates:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavingsByDate'
+          description: Investment returns breakdown per k-period
+
+    PerformanceResponse:
+      type: object
+      properties:
+        time:
+          type: string
+          description: Application uptime in "HH:mm:ss.SSS" format
+          example: "00:05:32.147"
+        memory:
+          type: string
+          description: JVM heap memory usage in "XXX.XX MB" format
+          example: "128.45 MB"
+        threads:
+          type: integer
+          description: Number of active JVM threads
+          example: 22
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN]
+          description: Overall application health status
+        components:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [UP, DOWN]
+              details:
+                type: object
+                additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request: expenses list cannot be empty"
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
