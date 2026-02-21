@@ -17,7 +17,7 @@ RUN apk add --no-cache maven \
 # Alpine Linux chosen for minimal image size (~180 MB vs ~400 MB with Debian),
 # fast pull/deploy times, and reduced attack surface while still providing
 # full glibc compatibility via Eclipse Temurin.
-FROM eclipse-temurin:21-jre-alpine AS runtime  # OS: Alpine Linux (see criteria above)
+FROM eclipse-temurin:21-jre-alpine AS runtime
 
 WORKDIR /app
 
