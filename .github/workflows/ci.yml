@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  unit-test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    container: eclipse-temurin:21-jdk-alpine
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Maven cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ github.ref_name }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            maven-${{ github.ref_name }}-
+            maven-
+
+      - name: Install Maven
+        run: apk add --no-cache maven
+
+      - name: Run tests
+        run: mvn test -q
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: target/surefire-reports/
+
+  performance-test:
+    name: Performance / Stress Tests
+    needs: unit-test
+    runs-on: ubuntu-latest
+    container: eclipse-temurin:21-jdk-alpine
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Maven cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ github.ref_name }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            maven-${{ github.ref_name }}-
+            maven-
+
+      - name: Install Maven
+        run: apk add --no-cache maven
+
+      - name: Run stress tests
+        run: mvn test -Pstress -q
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-test-reports
+          path: target/surefire-reports/
+
+  docker-build:
+    name: Docker Build
+    needs: performance-test
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          docker build -t ${{ github.repository }}:${{ github.sha }} .
+          docker tag ${{ github.repository }}:${{ github.sha }} ${{ github.repository }}:latest
