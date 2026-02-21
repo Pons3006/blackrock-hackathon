@@ -17,15 +17,22 @@ public final class TimeUtils {
      * Returns null if the format is invalid.
      */
     public static Long toEpochSeconds(String timestamp) {
-        // TODO: implement
-        throw new UnsupportedOperationException("Not yet implemented");
+        if (timestamp == null || timestamp.isBlank()) {
+            return null;
+        }
+        try {
+            LocalDateTime ldt = LocalDateTime.parse(timestamp.trim(), TIMESTAMP_FORMAT);
+            return ldt.toEpochSecond(ZoneOffset.UTC);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     /**
      * Formats epoch seconds back to the canonical timestamp string.
      */
     public static String fromEpochSeconds(long epochSeconds) {
-        // TODO: implement
-        throw new UnsupportedOperationException("Not yet implemented");
+        return LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC)
+                .format(TIMESTAMP_FORMAT);
     }
 }
