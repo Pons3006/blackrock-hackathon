@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.blackrock</groupId>
+    <groupId>com.ponshankar.hackathon.blackrock</groupId>
     <artifactId>micro-savings</artifactId>
     <version>1.0.0</version>
     <name>micro-savings</name>
